@@ -1,0 +1,16 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "(lldb) Launch",
+      "type": "lldb",
+      "request": "launch",
+      "cwd": "${workspaceFolder}",
+      "program": "${workspaceFolder}/zig-out/bin/zatic",
+      "stopAtEntry": true,
+      "externalConsole": false,
+      "miDebuggerPath": "/usr/bin/lldb",
+      "preLaunchTask": "build"
+    }
+  ]
+}

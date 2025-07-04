@@ -1,0 +1,12 @@
+.{
+    .name = .zatic,
+    .version = "0.0.0",
+    .fingerprint = 0xc5a6bf9523ed4e5e,
+    .minimum_zig_version = "0.14.1",
+    .dependencies = .{},
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+        "src",
+    },
+}
