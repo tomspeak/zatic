@@ -7,6 +7,7 @@ const PostConfig = struct {
     title: []const u8,
     published: bool,
 };
+const ConfigOptions = enum { url, date, title, published };
 
 const Post = struct {
     config: PostConfig,
@@ -131,16 +132,11 @@ pub fn parse_frontmatter(post: *Post, buf: []u8) !usize {
         const k = std.mem.trim(u8, kv.next() orelse continue, " \t");
         const v = std.mem.trim(u8, kv.next() orelse continue, " \t");
 
-        switch (match_config_key(k)) {
+        switch (std.meta.stringToEnum(ConfigOptions, k).?) {
             .url => config.url = v,
             .date => config.date = v,
             .title => config.title = v,
             .published => config.published = eql(v, "true"),
-            .unknown => {
-                const stderr = std.io.getStdErr().writer();
-                try stderr.print("error: unknown frontmatter key {s}\n", .{k});
-                @panic("passed unknown frontmatter key");
-            },
         }
     }
 
@@ -149,14 +145,6 @@ pub fn parse_frontmatter(post: *Post, buf: []u8) !usize {
     std.debug.print("{any}\n", .{config});
 
     return pos + delim.len;
-}
-
-inline fn match_config_key(k: []const u8) enum { url, date, title, published, unknown } {
-    if (eql(k, "url")) return .url;
-    if (eql(k, "date")) return .date;
-    if (eql(k, "title")) return .title;
-    if (eql(k, "published")) return .published;
-    return .unknown;
 }
 
 inline fn eql(a: []const u8, b: []const u8) bool {
