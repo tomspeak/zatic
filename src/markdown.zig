@@ -7,7 +7,7 @@ const PostConfig = struct {
     title: []const u8,
     published: bool,
 };
-const ConfigOptions = enum { url, date, title, published };
+const ConfigOptions = enum { url, date, title, published, unknown };
 
 const Post = struct {
     config: PostConfig,
@@ -131,12 +131,18 @@ pub fn parse_frontmatter(post: *Post, buf: []u8) !usize {
         var kv = std.mem.splitScalar(u8, l, ':');
         const k = std.mem.trim(u8, kv.next() orelse continue, " \t");
         const v = std.mem.trim(u8, kv.next() orelse continue, " \t");
+        const opt = std.meta.stringToEnum(ConfigOptions, k) orelse .unknown;
 
-        switch (std.meta.stringToEnum(ConfigOptions, k).?) {
+        switch (opt) {
             .url => config.url = v,
             .date => config.date = v,
             .title => config.title = v,
             .published => config.published = eql(v, "true"),
+            .unknown => {
+                const stderr = std.io.getStdErr().writer();
+                try stderr.print("error: unknown frontmatter key {s}\n", .{k});
+                @panic("passed unknown frontmatter key");
+            },
         }
     }
 
