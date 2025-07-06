@@ -17,71 +17,78 @@ const Post = struct {
 
 // Parsed features:
 //  Title + subtitles (# ## ### ####)
-//  Paragraphs
-//  Bold, Italic
+//  paragraphs
+//  bold, Italic
 //  URLs []()
 //  Block quotes >
 //  Footnotes (TBD)
 //  Images
 //  Horizontal lines ---
 
-// Create a tokenizer that will go through each byte of buf and assign meaning
-// have 2 stages: frontmatter and content stage
+const Token = union(enum) {
+    heading: struct {
+        level: u8,
+        text: []const u8,
+    },
+    paragraph: struct {
+        text: []const u8,
+    },
+    bold: struct {
+        text: []const u8,
+    },
 
-// Frontmatter:
-//  start ~~~, end ~~~
-//  key: value (string, bool)
-
-const Token = struct {
-    tag: Tag,
-    loc: Loc,
-
-    pub const Loc = struct {
-        start: usize,
-        end: usize,
-    };
-
-    pub const Tag = enum {
-        invalid,
-        identifier,
-        string_literal,
-        colon,
-        frontmatter_start,
-        frontmatter_end,
-
-        block_quote,
-        paragraph,
-        heading1,
-        heading2,
-        heading3,
-        heading4,
-        bold,
-        italic,
-    };
+    pub fn print(self: Token) void {
+        switch (self) {
+            .heading => |h| std.debug.print("heading (level {}): {s}\n", .{ h.level, h.text }),
+            .paragraph => |p| std.debug.print("paragraph: {s}\n", .{p.text}),
+            .bold => |b| std.debug.print("bold: {s}\n", .{b.text}),
+        }
+    }
 };
 
 const Tokenizer = struct {
-    buf: [:0]const u8,
-    idx: usize,
+    buf: []const u8,
+    index: usize,
 
-    pub fn init(buf: [:0]const u8) Tokenizer {
+    pub fn init(buf: []const u8) Tokenizer {
         return .{ .buf = buf, .index = 0 };
     }
 
-    const State = enum {
-        frontmatter,
-        content,
-        identifier,
-        string_literal,
-    };
+    const State = enum { start, heading, invalid };
 
-    // pub fn next(self: Tokenizer) Token {
-    //     var result: Token = .{ .tag = undefined, .local = .{ .start = self.idx, .end = undefined } };
-    //
-    //     state: switch (State.frontmatter) {
-    //         .frontmatter => {},
-    //     }
-    // }
+    pub fn next(self: *Tokenizer) ?Token {
+        const result: ?Token = null;
+
+        state: switch (State.start) {
+            .invalid => {
+                @panic("encountered invalid state parsing markdown content");
+            },
+            .start => switch (self.buf[self.index]) {
+                0 => {
+                    if (self.index == self.buf.len) {
+                        return result;
+                    } else {
+                        @panic("encountered suspected EOF at an invalid position");
+                    }
+                },
+                ' ', '\n', '\t', '\r' => {
+                    self.index += 1;
+                    continue :state .start;
+                },
+                '#' => {
+                    continue :state .heading;
+                },
+                else => continue :state .invalid,
+            },
+            .heading => {
+                self.index += 1;
+                // loop until we reach a non-#, count level
+                return .{ .heading = .{ .level = 1, .text = "hard coded heading" } };
+            },
+        }
+
+        return result;
+    }
 };
 
 pub fn parse(allocator: Allocator, file_path: []const u8) !void {
@@ -97,9 +104,9 @@ pub fn parse(allocator: Allocator, file_path: []const u8) !void {
     const fm_index = try parse_frontmatter(&post, buf);
     const content = buf[fm_index..];
 
-    std.debug.print("\nclean content:{s}", .{content});
+    // std.debug.print("\nclean content:{s}", .{content});
 
-    _ = try parse_content(&post, buf);
+    _ = try parse_content(&post, content);
     // init Post object
 
     // parse the front matter into Post.config
@@ -108,8 +115,14 @@ pub fn parse(allocator: Allocator, file_path: []const u8) !void {
 }
 
 fn parse_content(post: *Post, buf: []const u8) !void {
+    var tokenizer = Tokenizer.init(buf);
+    // var tokens: []Token = undefined;
+
+    while (tokenizer.next()) |token| {
+        token.print();
+    }
+
     _ = post;
-    _ = buf;
     @panic("todo");
 }
 
