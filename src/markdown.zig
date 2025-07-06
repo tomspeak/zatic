@@ -140,9 +140,7 @@ pub fn parse_frontmatter(post: *Post, buf: []u8) !usize {
         }
     }
 
-    _ = post;
-
-    std.debug.print("{any}\n", .{config});
+    post.*.config = config;
 
     return pos + delim.len;
 }
