@@ -25,68 +25,165 @@ const Post = struct {
 //  Images
 //  Horizontal lines ---
 
-const Token = union(enum) {
-    heading: struct {
-        level: u8,
-        text: []const u8,
-    },
-    paragraph: struct {
-        text: []const u8,
-    },
-    bold: struct {
-        text: []const u8,
-    },
+const Token = struct {
+    tag: Tag,
+    loc: Loc,
 
-    pub fn print(self: Token) void {
-        switch (self) {
-            .heading => |h| std.debug.print("heading (level {}): {s}\n", .{ h.level, h.text }),
-            .paragraph => |p| std.debug.print("paragraph: {s}\n", .{p.text}),
-            .bold => |b| std.debug.print("bold: {s}\n", .{b.text}),
+    pub const Loc = struct {
+        start: usize,
+        end: usize,
+    };
+
+    pub const Tag = enum {
+        invalid,
+        string_literal,
+        multiline_string_literal_line,
+        hashtag,
+        quote,
+        asterisk,
+        underline,
+        eof,
+
+        pub fn lexeme(tag: Tag) ?[]const u8 {
+            return switch (tag) {
+                .invalid,
+                .string_literal,
+                .multiline_string_literal_line,
+                .eof,
+                => null,
+
+                .quote => ">",
+                .hashtag => "#",
+                .underline => "_",
+                .asterisk => "*",
+            };
         }
-    }
+
+        pub fn symbol(tag: Tag) []const u8 {
+            return tag.lexeme() orelse switch (tag) {
+                .invalid => "invalid token",
+                .string_literal, .multiline_string_literal_line => "a string literal",
+                .eof => "EOF",
+                else => unreachable,
+            };
+        }
+    };
 };
 
-const Tokenizer = struct {
-    buf: []const u8,
+pub const Tokenizer = struct {
+    buffer: []const u8,
     index: usize,
 
-    pub fn init(buf: []const u8) Tokenizer {
-        return .{ .buf = buf, .index = 0 };
+    /// For debugging purposes.
+    pub fn dump(self: *Tokenizer, token: *const Token) void {
+        std.debug.print("{s} \"{s}\"\n", .{ @tagName(token.tag), self.buffer[token.loc.start..token.loc.end] });
     }
 
-    const State = enum { start, heading, invalid };
+    pub fn init(buffer: []const u8) Tokenizer {
+        // Skip the UTF-8 BOM if present.
+        return .{
+            .buffer = buffer,
+            .index = 0,
+        };
+    }
 
-    pub fn next(self: *Tokenizer) ?Token {
-        const result: ?Token = null;
+    const State = enum { start, expect_newline, identifier, string_literal, multiline_string_literal_line, asterisk, hashtag, bold, italic, underline, invalid };
+
+    /// After this returns invalid, it will reset on the next newline, returning tokens starting from there.
+    /// An eof token will always be returned at the end.
+    pub fn next(self: *Tokenizer) Token {
+        var result: Token = .{
+            .tag = undefined,
+            .loc = .{
+                .start = self.index,
+                .end = undefined,
+            },
+        };
 
         state: switch (State.start) {
-            .invalid => {
-                @panic("encountered invalid state parsing markdown content");
-            },
-            .start => switch (self.buf[self.index]) {
+            .start => switch (self.buffer[self.index]) {
                 0 => {
-                    if (self.index == self.buf.len) {
-                        return result;
+                    if (self.index == self.buffer.len) {
+                        return .{
+                            .tag = .eof,
+                            .loc = .{
+                                .start = self.index,
+                                .end = self.index,
+                            },
+                        };
                     } else {
-                        @panic("encountered suspected EOF at an invalid position");
+                        continue :state .invalid;
                     }
                 },
                 ' ', '\n', '\t', '\r' => {
                     self.index += 1;
+                    result.loc.start = self.index;
                     continue :state .start;
                 },
                 '#' => {
-                    continue :state .heading;
+                    result.tag = .hashtag;
+                    result.loc.start = self.index;
+                    continue :state .hashtag;
                 },
-                else => continue :state .invalid,
+                '>' => {
+                    result.tag = .quote;
+                    self.index += 1;
+                },
+                // '*' => continue :state .asterisk,
+                // '_' => continue :state .italic,
+                else => {
+                    result.tag = .string_literal;
+                    result.loc.start = self.index;
+                    continue :state .string_literal;
+                },
+                // else => continue :state .invalid,
             },
-            .heading => {
+
+            .invalid => {
                 self.index += 1;
-                // loop until we reach a non-#, count level
-                return .{ .heading = .{ .level = 1, .text = "hard coded heading" } };
+                switch (self.buffer[self.index]) {
+                    0 => if (self.index == self.buffer.len) {
+                        result.tag = .invalid;
+                    },
+                    '\n' => result.tag = .invalid,
+                    else => continue :state .invalid,
+                }
             },
+
+            .hashtag => {
+                self.index += 1;
+                switch (self.buffer[self.index]) {
+                    '#' => continue :state .hashtag,
+                    else => {},
+                }
+            },
+
+            .string_literal => {
+                self.index += 1;
+                switch (self.buffer[self.index]) {
+                    0 => {
+                        if (self.index != self.buffer.len) {
+                            continue :state .invalid;
+                        } else {
+                            result.tag = .invalid;
+                        }
+                    },
+                    '\n', '\r' => {},
+                    '*' => {
+                        // how do we break out of here?
+                    },
+                    // '\\' => continue :state .string_literal_backslash,
+                    // 0x01...0x09, 0x0b...0x1f, 0x7f => {
+                    //     continue :state .invalid;
+                    // },
+                    else => continue :state .string_literal,
+                }
+            },
+
+            else => {},
         }
 
+        result.loc.end = self.index;
         return result;
     }
 };
@@ -116,10 +213,16 @@ pub fn parse(allocator: Allocator, file_path: []const u8) !void {
 
 fn parse_content(post: *Post, buf: []const u8) !void {
     var tokenizer = Tokenizer.init(buf);
+    std.debug.print("{s}", .{buf});
     // var tokens: []Token = undefined;
 
-    while (tokenizer.next()) |token| {
-        token.print();
+    while (true) {
+        var t = tokenizer.next();
+        std.debug.print("{s}: {any} : {any}|{any} = {s}\n", .{ t.tag.symbol(), t.tag.lexeme(), t.loc.start, t.loc.end, buf[t.loc.start..t.loc.end] });
+
+        if (t.tag == .eof or t.tag == .invalid) {
+            break;
+        }
     }
 
     _ = post;
