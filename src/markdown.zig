@@ -129,7 +129,10 @@ pub const Tokenizer = struct {
                     result.tag = .quote;
                     self.index += 1;
                 },
-                // '*' => continue :state .asterisk,
+                '*' => {
+                    result.tag = .asterisk;
+                    self.index += 1;
+                },
                 // '_' => continue :state .italic,
                 else => {
                     result.tag = .string_literal;
@@ -168,10 +171,7 @@ pub const Tokenizer = struct {
                             result.tag = .invalid;
                         }
                     },
-                    '\n', '\r' => {},
-                    '*' => {
-                        // how do we break out of here?
-                    },
+                    '\n', '\r', '*' => {},
                     // '\\' => continue :state .string_literal_backslash,
                     // 0x01...0x09, 0x0b...0x1f, 0x7f => {
                     //     continue :state .invalid;
