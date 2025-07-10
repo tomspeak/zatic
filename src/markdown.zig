@@ -191,19 +191,37 @@ pub const Tokenizer = struct {
 
 const NodeKind = enum {
     Document,
-    Paragraph,
-    Heading,
-    Quote,
-    Text,
+    Heading1,
+    Heading2,
+    Heading3,
+    Heading4,
+    Heading5,
+    Heading6,
     Emphasis,
     Strong,
+    Quote,
+    Paragraph,
     HorizontalRule,
+    Text,
 };
 
 const Node = struct {
     kind: NodeKind,
-    content: ?[]const u8 = null,
-    children: std.ArrayList(Node),
+    data: union(NodeKind) {
+        Document: std.ArrayListUnmanaged(Node),
+        Heading1: std.ArrayListUnmanaged(Node),
+        Heading2: std.ArrayListUnmanaged(Node),
+        Heading3: std.ArrayListUnmanaged(Node),
+        Heading4: std.ArrayListUnmanaged(Node),
+        Heading5: std.ArrayListUnmanaged(Node),
+        Heading6: std.ArrayListUnmanaged(Node),
+        Emphasis: std.ArrayListUnmanaged(Node),
+        Strong: std.ArrayListUnmanaged(Node),
+        Quote: []const u8,
+        Paragraph: []const u8,
+        HorizontalRule: void,
+        Text: []const u8,
+    },
 };
 
 const Parser = struct {
@@ -221,44 +239,66 @@ const Parser = struct {
         std.debug.print("==== parsing ==== \n", .{});
         var root = Node{
             .kind = .Document,
-            .children = std.ArrayList(Node).init(allocator),
+            .data = .{ .Document = std.ArrayListUnmanaged(Node){} },
         };
 
-        for (self.tokens) |t| {
+        while (self.index < self.tokens.len - 1) : (self.index += 1) {
+            const t = self.tokens[self.index];
+
             std.debug.print("{s}\t{s}\t{any}..{any}\n", .{ t.tag.symbol(), t.tag.lexeme() orelse "", t.loc.start, t.loc.end });
 
             switch (t.tag) {
                 .hashtag => {
-                    // TODO: we need to check that the next token is a string literal, and fail if its not
-                    const slice = self.buf[t.loc.start..t.loc.end];
-                    try root.children.append(Node{
-                        .kind = .Heading,
-                        .content = slice,
-                        .children = std.ArrayList(Node).init(allocator),
+                    const heading_len = self.buf[t.loc.start..t.loc.end].len;
+                    const kind: NodeKind = switch (heading_len) {
+                        1 => .Heading1,
+                        2 => .Heading2,
+                        3 => .Heading3,
+                        4 => .Heading4,
+                        5 => .Heading5,
+                        6 => .Heading6,
+                        else => unreachable,
+                    };
+
+                    const nt = peek(1, self.tokens) orelse @panic("heading must be followed by a token, but got null");
+                    if (nt.tag != Token.Tag.string_literal) {
+                        @panic("header must be followed by a string literal");
+                    }
+
+                    // Build child: Text node
+                    const text_slice = self.buf[nt.loc.start..nt.loc.end];
+                    var heading_children = std.ArrayListUnmanaged(Node){};
+                    try heading_children.append(allocator, Node{
+                        .kind = .Text,
+                        .data = .{ .Text = text_slice },
                     });
+
+                    // Build heading node with text as child
+                    try root.data.Document.append(allocator, Node{
+                        .kind = kind,
+                        .data = switch (kind) {
+                            .Heading1 => .{ .Heading1 = heading_children },
+                            .Heading2 => .{ .Heading2 = heading_children },
+                            .Heading3 => .{ .Heading3 = heading_children },
+                            .Heading4 => .{ .Heading4 = heading_children },
+                            .Heading5 => .{ .Heading5 = heading_children },
+                            .Heading6 => .{ .Heading6 = heading_children },
+                            else => unreachable,
+                        },
+                    });
+
+                    self.eat_token();
                 },
                 .quote => {
-                    const slice = self.buf[t.loc.start..t.loc.end];
-                    try root.children.append(Node{
-                        .kind = .Quote,
-                        .content = slice,
-                        .children = std.ArrayList(Node).init(allocator),
-                    });
+                    const content = self.buf[t.loc.start..t.loc.end];
+                    try root.data.Document.append(allocator, Node{ .kind = .Quote, .data = .{ .Quote = content } });
                 },
                 .string_literal => {
-                    const slice = self.buf[t.loc.start..t.loc.end];
-                    try root.children.append(Node{
-                        .kind = .Paragraph,
-                        .content = slice,
-                        .children = std.ArrayList(Node).init(allocator),
-                    });
+                    const content = self.buf[t.loc.start..t.loc.end];
+                    try root.data.Document.append(allocator, Node{ .kind = .Paragraph, .data = .{ .Paragraph = content } });
                 },
                 .horizontal_rule => {
-                    try root.children.append(Node{
-                        .kind = .HorizontalRule,
-                        .content = null,
-                        .children = std.ArrayList(Node).init(allocator),
-                    });
+                    try root.data.Document.append(allocator, Node{ .kind = .HorizontalRule, .data = .{ .HorizontalRule = {} } });
                 },
                 else => {},
             }
@@ -272,24 +312,65 @@ const Parser = struct {
         return self.tokens[self.index];
     }
 
-    fn peek(by: u2, tokens: []const u8) ?Token {
+    pub fn peek(by: u2, tokens: []const Token) ?Token {
         return if (by < tokens.len) tokens[by] else null;
+    }
+
+    fn eat_token(self: *Self) void {
+        self.index += 1;
     }
 };
 
-fn renderHtml(node: Node) !void {
+fn renderHtml(writer: anytype, node: Node) !void {
     switch (node.kind) {
         .Document => {
-            for (node.children.items) |child| {
-                std.debug.print("{any} {s}\n", .{ child.kind, child.content.? });
+            const children = node.data.Document;
+            for (children.items) |child| {
+                try renderHtml(writer, child);
             }
         },
+        .Heading1, .Heading2, .Heading3, .Heading4, .Heading5, .Heading6 => {
+            const level: u3 = switch (node.kind) {
+                .Heading1 => 1,
+                .Heading2 => 2,
+                .Heading3 => 3,
+                .Heading4 => 4,
+                .Heading5 => 5,
+                .Heading6 => 6,
+                else => unreachable,
+            };
+
+            try writer.print("<h{}>", .{level});
+            const children = switch (node.kind) {
+                .Heading1 => node.data.Heading1,
+                .Heading2 => node.data.Heading2,
+                .Heading3 => node.data.Heading3,
+                .Heading4 => node.data.Heading4,
+                .Heading5 => node.data.Heading5,
+                .Heading6 => node.data.Heading6,
+                else => unreachable,
+            };
+            for (children.items) |child| {
+                try renderHtml(writer, child);
+            }
+            try writer.print("</h{}>\n", .{level});
+        },
+        .Paragraph => {
+            const content = node.data.Paragraph;
+            try writer.print("<p>{s}</p>\n", .{content});
+        },
+        .Quote => {
+            const content = node.data.Quote;
+            try writer.print("<blockquote>{s}</blockquote>\n", .{content});
+        },
+        .HorizontalRule => {
+            try writer.print("<hr />\n", .{});
+        },
+        .Text => {
+            const content = node.data.Text;
+            try writer.print("{s}", .{content});
+        },
         else => {},
-        // .Heading => try writer.print("<h1>{s}</h1>\n", .{node.content.?}),
-        // .Paragraph => try writer.print("<p>{s}</p>\n", .{node.content.?}),
-        // .Quote => try writer.print("<blockquote>{s}</blockquote>\n", .{node.content.?}),
-        // .HorizontalRule => try writer.print("<hr />\n", .{}),
-        // else => {},
     }
 }
 
@@ -310,7 +391,8 @@ pub fn parse(allocator: Allocator, file_path: []const u8) !void {
 
     var parser = Parser.init(content, tokens);
     const ast = try parser.parse(allocator);
-    _ = try renderHtml(ast);
+    const stdout = std.io.getStdOut().writer();
+    _ = try renderHtml(stdout, ast);
 }
 
 fn parse_content(allocator: Allocator, buf: [:0]const u8) ![]Token {
