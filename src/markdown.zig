@@ -243,6 +243,7 @@ const Parser = struct {
         };
 
         while (self.index < self.tokens.len - 1) : (self.index += 1) {
+            // TODO: this is hardcoded and isn't refreshing causes Hello World to appear non stop
             const t = self.tokens[self.index];
 
             std.debug.print("{s}\t{s}\t{any}..{any}\n", .{ t.tag.symbol(), t.tag.lexeme() orelse "", t.loc.start, t.loc.end });
@@ -260,12 +261,11 @@ const Parser = struct {
                         else => unreachable,
                     };
 
-                    const nt = peek(1, self.tokens) orelse @panic("heading must be followed by a token, but got null");
+                    const nt = peek(self.index, self.tokens) orelse @panic("heading must be followed by a token, but got null");
                     if (nt.tag != Token.Tag.string_literal) {
                         @panic("header must be followed by a string literal");
                     }
 
-                    // Build child: Text node
                     const text_slice = self.buf[nt.loc.start..nt.loc.end];
                     var heading_children = std.ArrayListUnmanaged(Node){};
                     try heading_children.append(allocator, Node{
@@ -273,7 +273,6 @@ const Parser = struct {
                         .data = .{ .Text = text_slice },
                     });
 
-                    // Build heading node with text as child
                     try root.data.Document.append(allocator, Node{
                         .kind = kind,
                         .data = switch (kind) {
@@ -290,7 +289,11 @@ const Parser = struct {
                     self.eat_token();
                 },
                 .quote => {
-                    const content = self.buf[t.loc.start..t.loc.end];
+                    const nt = peek(self.index, self.tokens) orelse @panic("quote must be followed by a token, but got null");
+                    if (nt.tag != Token.Tag.string_literal) {
+                        @panic("quote must be followed by a string literal");
+                    }
+                    const content = self.buf[nt.loc.start..nt.loc.end];
                     try root.data.Document.append(allocator, Node{ .kind = .Quote, .data = .{ .Quote = content } });
                 },
                 .string_literal => {
@@ -312,8 +315,8 @@ const Parser = struct {
         return self.tokens[self.index];
     }
 
-    pub fn peek(by: u2, tokens: []const Token) ?Token {
-        return if (by < tokens.len) tokens[by] else null;
+    pub fn peek(index: usize, tokens: []const Token) ?Token {
+        return if (index + 1 < tokens.len) tokens[index + 1] else null;
     }
 
     fn eat_token(self: *Self) void {
