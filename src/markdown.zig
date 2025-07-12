@@ -15,14 +15,13 @@ const Post = struct {
     html: []u8,
 };
 
-// Parsed features:
-//  URLs []()
-//  Footnotes (TBD)
-//  Images
-
 const Token = struct {
     tag: Tag,
     loc: Loc,
+
+    pub fn dump(self: *const Token) void {
+        std.debug.print("tag: {s} start: {d} end: {d}\n", .{ @tagName(self.tag), self.loc.start, self.loc.end });
+    }
 
     pub const Loc = struct {
         start: usize,
@@ -35,8 +34,9 @@ const Token = struct {
         hashtag,
         quote,
         asterisk,
-        underline,
+        underscore,
         horizontal_rule,
+        new_line,
         eof,
 
         pub fn lexeme(tag: Tag) ?[]const u8 {
@@ -44,11 +44,12 @@ const Token = struct {
                 .invalid,
                 .string_literal,
                 .eof,
+                .new_line,
                 => null,
 
                 .quote => ">",
                 .hashtag => "#",
-                .underline => "_",
+                .underscore => "_",
                 .asterisk => "*",
                 .horizontal_rule => "-",
             };
@@ -59,6 +60,7 @@ const Token = struct {
                 .invalid => "invalid token",
                 .string_literal => "a string literal",
                 .eof => "EOF",
+                .new_line => "\\n",
                 else => unreachable,
             };
         }
@@ -69,23 +71,19 @@ pub const Tokenizer = struct {
     buffer: [:0]const u8,
     index: usize,
 
-    /// For debugging purposes.
     pub fn dump(self: *Tokenizer, token: *const Token) void {
         std.debug.print("{s} \"{s}\"\n", .{ @tagName(token.tag), self.buffer[token.loc.start..token.loc.end] });
     }
 
     pub fn init(buffer: [:0]const u8) Tokenizer {
-        // Skip the UTF-8 BOM if present.
         return .{
             .buffer = buffer,
             .index = 0,
         };
     }
 
-    const State = enum { start, string_literal, hashtag, horizontal_rule, invalid };
+    const State = enum { start, string_literal, hashtag, horizontal_rule, invalid, new_line };
 
-    /// After this returns invalid, it will reset on the next newline, returning tokens starting from there.
-    /// An eof token will always be returned at the end.
     pub fn next(self: *Tokenizer) Token {
         var result: Token = .{
             .tag = undefined,
@@ -110,16 +108,22 @@ pub const Tokenizer = struct {
                         continue :state .invalid;
                     }
                 },
-                ' ', '\n', '\t', '\r' => {
+                ' ', '\t' => {
                     self.index += 1;
                     result.loc.start = self.index;
                     continue :state .start;
+                },
+                '\n', '\r' => {
+                    result.tag = .new_line;
+                    result.loc.start = self.index;
+                    continue :state .new_line;
                 },
                 '#' => {
                     result.tag = .hashtag;
                     result.loc.start = self.index;
                     continue :state .hashtag;
                 },
+                // TODO: parsing bug, need to check that it's 3 --- in a row
                 '-' => {
                     result.tag = .horizontal_rule;
                     result.loc.start = self.index;
@@ -133,7 +137,10 @@ pub const Tokenizer = struct {
                     result.tag = .asterisk;
                     self.index += 1;
                 },
-                // '_' => continue :state .italic,
+                '_' => {
+                    result.tag = .underscore;
+                    self.index += 1;
+                },
                 else => {
                     result.tag = .string_literal;
                     result.loc.start = self.index;
@@ -142,13 +149,27 @@ pub const Tokenizer = struct {
             },
 
             .invalid => {
+                std.debug.print("stepping into invalid sequence\n", .{});
                 self.index += 1;
                 switch (self.buffer[self.index]) {
                     0 => if (self.index == self.buffer.len) {
+                        std.debug.print("==== failed at invalid switch, deemed to be 0 and end of file ===", .{});
                         result.tag = .invalid;
                     },
-                    '\n' => result.tag = .invalid,
-                    else => continue :state .invalid,
+                    else => {
+                        std.debug.print("==== failed at invalid ELSE: {any}\n", .{self.buffer[self.index]});
+                        continue :state .invalid;
+                    },
+                }
+            },
+
+            .new_line => {
+                self.index += 1;
+                switch (self.buffer[self.index]) {
+                    '\n', '\r' => {
+                        continue :state .new_line;
+                    },
+                    else => {},
                 }
             },
 
@@ -173,12 +194,12 @@ pub const Tokenizer = struct {
                 switch (self.buffer[self.index]) {
                     0 => {
                         if (self.index != self.buffer.len) {
+                            std.debug.print("string literal invalid state, but we are not at EOF\n", .{});
                             continue :state .invalid;
-                        } else {
-                            result.tag = .invalid;
                         }
                     },
-                    '\n', '\r', '*' => {},
+                    '*', '_' => {},
+                    '\n', '\r' => {},
                     else => continue :state .string_literal,
                 }
             },
@@ -209,16 +230,16 @@ const Node = struct {
     kind: NodeKind,
     data: union(NodeKind) {
         Document: std.ArrayListUnmanaged(Node),
-        Heading1: std.ArrayListUnmanaged(Node),
-        Heading2: std.ArrayListUnmanaged(Node),
-        Heading3: std.ArrayListUnmanaged(Node),
-        Heading4: std.ArrayListUnmanaged(Node),
-        Heading5: std.ArrayListUnmanaged(Node),
-        Heading6: std.ArrayListUnmanaged(Node),
-        Emphasis: std.ArrayListUnmanaged(Node),
-        Strong: std.ArrayListUnmanaged(Node),
+        Heading1: []const u8,
+        Heading2: []const u8,
+        Heading3: []const u8,
+        Heading4: []const u8,
+        Heading5: []const u8,
+        Heading6: []const u8,
+        Emphasis: []const u8,
+        Strong: []const u8,
         Quote: []const u8,
-        Paragraph: []const u8,
+        Paragraph: std.ArrayListUnmanaged(Node),
         HorizontalRule: void,
         Text: []const u8,
     },
@@ -239,11 +260,10 @@ const Parser = struct {
         std.debug.print("==== parsing ==== \n", .{});
         var root = Node{
             .kind = .Document,
-            .data = .{ .Document = std.ArrayListUnmanaged(Node){} },
+            .data = .{ .Document = std.ArrayListUnmanaged(Node).empty },
         };
 
-        while (self.index < self.tokens.len - 1) : (self.index += 1) {
-            // TODO: this is hardcoded and isn't refreshing causes Hello World to appear non stop
+        while (self.index < self.tokens.len - 1) {
             const t = self.tokens[self.index];
 
             std.debug.print("{s}\t{s}\t{any}..{any}\n", .{ t.tag.symbol(), t.tag.lexeme() orelse "", t.loc.start, t.loc.end });
@@ -261,27 +281,22 @@ const Parser = struct {
                         else => unreachable,
                     };
 
-                    const nt = peek(self.index, self.tokens) orelse @panic("heading must be followed by a token, but got null");
+                    const nt = self.next();
                     if (nt.tag != Token.Tag.string_literal) {
                         @panic("header must be followed by a string literal");
                     }
 
-                    const text_slice = self.buf[nt.loc.start..nt.loc.end];
-                    var heading_children = std.ArrayListUnmanaged(Node){};
-                    try heading_children.append(allocator, Node{
-                        .kind = .Text,
-                        .data = .{ .Text = text_slice },
-                    });
+                    const content = self.buf[nt.loc.start..nt.loc.end];
 
                     try root.data.Document.append(allocator, Node{
                         .kind = kind,
                         .data = switch (kind) {
-                            .Heading1 => .{ .Heading1 = heading_children },
-                            .Heading2 => .{ .Heading2 = heading_children },
-                            .Heading3 => .{ .Heading3 = heading_children },
-                            .Heading4 => .{ .Heading4 = heading_children },
-                            .Heading5 => .{ .Heading5 = heading_children },
-                            .Heading6 => .{ .Heading6 = heading_children },
+                            .Heading1 => .{ .Heading1 = content },
+                            .Heading2 => .{ .Heading2 = content },
+                            .Heading3 => .{ .Heading3 = content },
+                            .Heading4 => .{ .Heading4 = content },
+                            .Heading5 => .{ .Heading5 = content },
+                            .Heading6 => .{ .Heading6 = content },
                             else => unreachable,
                         },
                     });
@@ -289,25 +304,101 @@ const Parser = struct {
                     self.eat_token();
                 },
                 .quote => {
-                    const nt = peek(self.index, self.tokens) orelse @panic("quote must be followed by a token, but got null");
+                    const nt = self.peek(1) orelse @panic("quote must be followed by a token, but got null");
                     if (nt.tag != Token.Tag.string_literal) {
                         @panic("quote must be followed by a string literal");
                     }
                     const content = self.buf[nt.loc.start..nt.loc.end];
                     try root.data.Document.append(allocator, Node{ .kind = .Quote, .data = .{ .Quote = content } });
+
+                    self.eat_token();
                 },
                 .string_literal => {
-                    const content = self.buf[t.loc.start..t.loc.end];
-                    try root.data.Document.append(allocator, Node{ .kind = .Paragraph, .data = .{ .Paragraph = content } });
+                    const p = try self.parse_paragraph(allocator);
+                    try root.data.Document.append(allocator, p);
+                    // const content = self.buf[t.loc.start..t.loc.end];
+                    // try root.data.Document.append(allocator, Node{ .kind = .Paragraph, .data = .{ .Paragraph = content } });
+                    // self.eat_token();
                 },
                 .horizontal_rule => {
                     try root.data.Document.append(allocator, Node{ .kind = .HorizontalRule, .data = .{ .HorizontalRule = {} } });
+                    self.eat_token();
                 },
-                else => {},
+                .new_line => {
+                    self.eat_token();
+                },
+                else => {
+                    @panic("unhandled AST item");
+                },
             }
         }
 
         return root;
+    }
+
+    fn parse_paragraph(self: *Self, allocator: Allocator) !Node {
+        var children = std.ArrayListUnmanaged(Node).empty;
+
+        while (self.index < self.tokens.len) {
+            const t = self.tokens[self.index];
+
+            if (t.tag == Token.Tag.eof) {
+                self.eat_token();
+                break;
+            }
+
+            switch (t.tag) {
+                .new_line => {
+                    self.eat_token();
+                    break;
+                },
+                .string_literal => {
+                    const content = self.buf[t.loc.start..t.loc.end];
+                    try children.append(allocator, Node{ .kind = .Text, .data = .{ .Text = content } });
+                    self.eat_token();
+                },
+                .asterisk => {
+                    var nt = self.next();
+                    if (nt.tag != Token.Tag.asterisk) {
+                        @panic("asterisk must be double-asterisk");
+                    }
+
+                    nt = self.next();
+                    if (nt.tag != Token.Tag.string_literal) {
+                        @panic("double-asterisk must be followed by a string literal");
+                    }
+
+                    const content = self.buf[nt.loc.start..nt.loc.end];
+                    try children.append(allocator, Node{ .kind = .Strong, .data = .{ .Strong = content } });
+
+                    self.eat_token();
+                    self.eat_until_not(Token.Tag.asterisk);
+                },
+                .underscore => {
+                    var nt = self.next();
+                    if (nt.tag != Token.Tag.string_literal) {
+                        @panic("underscore must be followed by a string literal");
+                    }
+
+                    const content = self.buf[nt.loc.start..nt.loc.end];
+                    try children.append(allocator, Node{ .kind = NodeKind.Emphasis, .data = .{ .Emphasis = content } });
+
+                    nt = self.next();
+                    if (nt.tag != Token.Tag.underscore) {
+                        @panic("_{content} must be followed by a closing _");
+                    }
+                    self.eat_until_not(Token.Tag.underscore);
+                },
+                else => {
+                    @panic("what is this case? maybe we just break insted");
+                },
+            }
+        }
+
+        return Node{
+            .kind = .Paragraph,
+            .data = .{ .Paragraph = children },
+        };
     }
 
     fn next(self: *Self) Token {
@@ -315,12 +406,19 @@ const Parser = struct {
         return self.tokens[self.index];
     }
 
-    pub fn peek(index: usize, tokens: []const Token) ?Token {
-        return if (index + 1 < tokens.len) tokens[index + 1] else null;
+    fn peek(self: *Self, offset: usize) ?Token {
+        const i = self.index + offset;
+        return if (i < self.tokens.len) self.tokens[i] else null;
     }
 
     fn eat_token(self: *Self) void {
         self.index += 1;
+    }
+
+    fn eat_until_not(self: *Self, token: Token.Tag) void {
+        while (self.tokens[self.index].tag == token) {
+            self.index += 1;
+        }
     }
 };
 
@@ -328,9 +426,11 @@ fn renderHtml(writer: anytype, node: Node) !void {
     switch (node.kind) {
         .Document => {
             const children = node.data.Document;
+            try writer.print("<div>", .{});
             for (children.items) |child| {
                 try renderHtml(writer, child);
             }
+            try writer.print("</div>", .{});
         },
         .Heading1, .Heading2, .Heading3, .Heading4, .Heading5, .Heading6 => {
             const level: u3 = switch (node.kind) {
@@ -343,8 +443,7 @@ fn renderHtml(writer: anytype, node: Node) !void {
                 else => unreachable,
             };
 
-            try writer.print("<h{}>", .{level});
-            const children = switch (node.kind) {
+            const content = switch (node.kind) {
                 .Heading1 => node.data.Heading1,
                 .Heading2 => node.data.Heading2,
                 .Heading3 => node.data.Heading3,
@@ -353,14 +452,23 @@ fn renderHtml(writer: anytype, node: Node) !void {
                 .Heading6 => node.data.Heading6,
                 else => unreachable,
             };
+            try writer.print("<h{}>{s}</h{}>\n", .{ level, content, level });
+        },
+        .Strong => {
+            const content = node.data.Strong;
+            try writer.print("<strong>{s}</strong>\n", .{content});
+        },
+        .Emphasis => {
+            const content = node.data.Emphasis;
+            try writer.print("<i>{s}</i>\n", .{content});
+        },
+        .Paragraph => {
+            const children = node.data.Paragraph;
+            try writer.print("<p>", .{});
             for (children.items) |child| {
                 try renderHtml(writer, child);
             }
-            try writer.print("</h{}>\n", .{level});
-        },
-        .Paragraph => {
-            const content = node.data.Paragraph;
-            try writer.print("<p>{s}</p>\n", .{content});
+            try writer.print("</p>\n", .{});
         },
         .Quote => {
             const content = node.data.Quote;
@@ -373,7 +481,6 @@ fn renderHtml(writer: anytype, node: Node) !void {
             const content = node.data.Text;
             try writer.print("{s}", .{content});
         },
-        else => {},
     }
 }
 
@@ -456,4 +563,24 @@ pub fn parse_frontmatter_into_config(post: *Post, buf: []u8) !usize {
 
 inline fn eql(a: []const u8, b: []const u8) bool {
     return std.mem.eql(u8, a, b);
+}
+
+test "basic tokenizer" {
+    const allocator = std.testing.allocator;
+    const content: [:0]const u8 =
+        \\# hello
+        \\how are *you*?
+    ;
+    const tokens = try parse_content(allocator, content);
+    defer allocator.free(tokens);
+
+    const expected_tags = [_]Token.Tag{ .hashtag, .string_literal, .new_line, .string_literal, .asterisk, .string_literal, .asterisk, .string_literal, .eof };
+
+    var actual_tags: [9]Token.Tag = undefined;
+    for (tokens, 0..) |tok, i| {
+        tok.dump();
+        actual_tags[i] = tok.tag;
+    }
+
+    try std.testing.expectEqualSlices(Token.Tag, &expected_tags, &actual_tags);
 }

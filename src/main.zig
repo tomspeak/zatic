@@ -7,3 +7,7 @@ pub fn main() !void {
 
     try md.parse(alloc, "site/posts/test.md");
 }
+
+test {
+    @import("std").testing.refAllDecls(@This());
+}
