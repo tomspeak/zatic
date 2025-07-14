@@ -112,7 +112,7 @@ pub fn parse(self: *Parser, allocator: Allocator) !Node {
                     },
                 });
 
-                self.eat_token();
+                self.eatToken();
             },
             .quote => {
                 const nt = self.peek(1) orelse @panic("quote must be followed by a token, but got null");
@@ -122,18 +122,18 @@ pub fn parse(self: *Parser, allocator: Allocator) !Node {
                 const content = self.buf[nt.loc.start..nt.loc.end];
                 try root.data.Document.append(allocator, Node{ .kind = .Quote, .data = .{ .Quote = content } });
 
-                self.eat_token();
+                self.eatToken();
             },
             .string_literal => {
-                const p = try self.parse_paragraph(allocator);
+                const p = try self.parseParagraph(allocator);
                 try root.data.Document.append(allocator, p);
             },
             .horizontal_rule => {
                 try root.data.Document.append(allocator, Node{ .kind = .HorizontalRule, .data = .{ .HorizontalRule = {} } });
-                self.eat_token();
+                self.eatToken();
             },
             .new_line => {
-                self.eat_token();
+                self.eatToken();
             },
             else => {
                 @panic("unhandled AST item");
@@ -144,26 +144,26 @@ pub fn parse(self: *Parser, allocator: Allocator) !Node {
     return root;
 }
 
-fn parse_paragraph(self: *Parser, allocator: Allocator) !Node {
+fn parseParagraph(self: *Parser, allocator: Allocator) !Node {
     var children = std.ArrayListUnmanaged(Node).empty;
 
     while (self.index < self.tokens.len) {
         const t = self.tokens[self.index];
 
         if (t.ttype == Token.TokenType.eof) {
-            self.eat_token();
+            self.eatToken();
             break;
         }
 
         switch (t.ttype) {
             .new_line => {
-                self.eat_token();
+                self.eatToken();
                 break;
             },
             .string_literal => {
                 const content = self.buf[t.loc.start..t.loc.end];
                 try children.append(allocator, Node{ .kind = .Text, .data = .{ .Text = content } });
-                self.eat_token();
+                self.eatToken();
             },
             .asterisk => {
                 var nt = self.next();
@@ -179,8 +179,8 @@ fn parse_paragraph(self: *Parser, allocator: Allocator) !Node {
                 const content = self.buf[nt.loc.start..nt.loc.end];
                 try children.append(allocator, Node{ .kind = .Strong, .data = .{ .Strong = content } });
 
-                self.eat_token();
-                self.eat_until_not(Token.TokenType.asterisk);
+                self.eatToken();
+                self.eatUntilNot(Token.TokenType.asterisk);
             },
             .underscore => {
                 var nt = self.next();
@@ -195,7 +195,7 @@ fn parse_paragraph(self: *Parser, allocator: Allocator) !Node {
                 if (nt.ttype != Token.TokenType.underscore) {
                     @panic("_{content} must be followed by a closing _");
                 }
-                self.eat_until_not(Token.TokenType.underscore);
+                self.eatUntilNot(Token.TokenType.underscore);
             },
             else => {
                 @panic("what is this case? maybe we just break instead");
@@ -219,11 +219,11 @@ fn peek(self: *Parser, offset: usize) ?Token {
     return if (i < self.tokens.len) self.tokens[i] else null;
 }
 
-fn eat_token(self: *Parser) void {
+fn eatToken(self: *Parser) void {
     self.index += 1;
 }
 
-fn eat_until_not(self: *Parser, token: Token.TokenType) void {
+fn eatUntilNot(self: *Parser, token: Token.TokenType) void {
     while (self.tokens[self.index].ttype == token) {
         self.index += 1;
     }
