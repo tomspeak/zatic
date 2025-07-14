@@ -3,8 +3,9 @@
 //   for error handling inspiration.
 // 2. handle outbound urls
 // 3. better debug output that can be toggled on/off
-// 4. output html into a string not stdout
-// 5. rename to camelCase not snake_case
+// 4. better ergonomics for processing tokens/ast
+// 5. add description to PostConfig
+// 6. support <ol>
 const Allocator = std.mem.Allocator;
 
 const Frontmatter = @import("frontmatter.zig");
@@ -16,7 +17,7 @@ const Post = @import("../post/index.zig");
 const std = @import("std");
 
 pub fn parse(allocator: Allocator, post: *Post, content: [:0]u8) !void {
-    const fm_index = try Frontmatter.parse(post, content);
+    const fm_index = try Frontmatter.parse(allocator, post, content);
     const contentSansFrontmatter = content[fm_index..];
 
     var lexer = Lexer.init(contentSansFrontmatter);

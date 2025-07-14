@@ -2,7 +2,7 @@ const std = @import("std");
 
 const Post = @import("../post/index.zig");
 
-pub fn parse(post: *Post, buf: []u8) !usize {
+pub fn parse(allocator: std.mem.Allocator, post: *Post, buf: []u8) !usize {
     const delim = "=!!!=";
 
     const pos = std.mem.indexOf(u8, buf, delim) orelse return error.NoFrontMatterFound;
@@ -23,9 +23,9 @@ pub fn parse(post: *Post, buf: []u8) !usize {
         const opt = std.meta.stringToEnum(Post.ConfigOptions, k) orelse .unknown;
 
         switch (opt) {
-            .url => config.url = v,
-            .date => config.date = v,
-            .title => config.title = v,
+            .url => config.url = try allocator.dupe(u8, v),
+            .date => config.date = try allocator.dupe(u8, v),
+            .title => config.title = try allocator.dupe(u8, v),
             .published => config.published = eql(v, "true"),
             .unknown => {
                 const stderr = std.io.getStdErr().writer();
