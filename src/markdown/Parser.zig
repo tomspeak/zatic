@@ -25,6 +25,7 @@ const NodeKind = enum {
     Paragraph,
     HorizontalRule,
     Text,
+    Url,
 };
 
 pub const Node = struct {
@@ -43,6 +44,10 @@ pub const Node = struct {
         Paragraph: std.ArrayListUnmanaged(Node),
         HorizontalRule: void,
         Text: []const u8,
+        Url: struct {
+            text: []const u8,
+            href: []const u8,
+        },
     },
 
     pub fn deinit(self: *Node, allocator: std.mem.Allocator) void {
@@ -200,6 +205,26 @@ fn parseParagraph(self: *Parser, allocator: Allocator) !Node {
 
                 self.eat();
             },
+            .lbracket => {
+                try self.assertPeek(1, .string_literal);
+                const text = self.next();
+
+                try self.assertPeek(1, .rbracket);
+                self.eat();
+
+                try self.assertPeek(1, .lparen);
+                self.eat();
+
+                try self.assertPeek(1, .string_literal);
+                const href = self.next();
+
+                try self.assertPeek(1, .rparen);
+                self.eat();
+
+                try children.append(allocator, Node{ .kind = NodeKind.Url, .data = .{ .Url = .{ .href = self.buf[href.loc.start..href.loc.end], .text = self.buf[text.loc.start..text.loc.end] } } });
+
+                self.eat();
+            },
             else => {
                 var buf: [128]u8 = undefined;
                 const msg = std.fmt.bufPrint(&buf, "line={d}\tcol={d}\nparseParagraph - unsupported TokenType: {s}", .{ self.line, self.index, t.ttype.symbol() }) catch unreachable;
@@ -313,6 +338,12 @@ pub fn write(writer: anytype, node: Parser.Node) !void {
         .Text => {
             const content = node.data.Text;
             try writer.print("{s}", .{content});
+        },
+        .Url => {
+            const url = node.data.Url.href;
+            const text = node.data.Url.text;
+
+            try writer.print("<a href=\"{s}\">{s}</a>", .{ url, text });
         },
     }
 }

@@ -16,6 +16,10 @@ pub const TokenType = enum {
     quote,
     asterisk,
     underscore,
+    lbracket,
+    rbracket,
+    lparen,
+    rparen,
     horizontal_rule,
     new_line,
     eof,
@@ -28,10 +32,14 @@ pub const TokenType = enum {
             .new_line,
             => null,
 
-            .quote => ">",
             .hashtag => "#",
-            .underscore => "_",
+            .quote => ">",
             .asterisk => "*",
+            .underscore => "_",
+            .lbracket => "[",
+            .rbracket => "]",
+            .lparen => "(",
+            .rparen => ")",
             .horizontal_rule => "-",
         };
     }

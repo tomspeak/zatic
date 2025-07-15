@@ -90,6 +90,22 @@ fn next(self: *Lexer) Token {
                 result.ttype = .underscore;
                 self.index += 1;
             },
+            '[' => {
+                result.ttype = .lbracket;
+                self.index += 1;
+            },
+            ']' => {
+                result.ttype = .rbracket;
+                self.index += 1;
+            },
+            '(' => {
+                result.ttype = .lparen;
+                self.index += 1;
+            },
+            ')' => {
+                result.ttype = .rparen;
+                self.index += 1;
+            },
             else => {
                 result.ttype = .string_literal;
                 result.loc.start = self.index;
@@ -131,7 +147,7 @@ fn next(self: *Lexer) Token {
                         @panic("string literal invalid state, but we are not at EOF");
                     }
                 },
-                '*', '_' => {},
+                '*', '_', '[', ']', '(', ')' => {},
                 '\n', '\r' => {},
                 else => continue :state .string_literal,
             }
