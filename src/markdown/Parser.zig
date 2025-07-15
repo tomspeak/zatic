@@ -136,16 +136,17 @@ pub fn parse(self: *Parser, allocator: Allocator) !Node {
 
                 self.eat();
             },
-            .string_literal => {
-                const p = try self.parseParagraph(allocator);
-                try root.data.Document.append(allocator, p);
-            },
             .horizontal_rule => {
                 try root.data.Document.append(allocator, Node{ .kind = .HorizontalRule, .data = .{ .HorizontalRule = {} } });
                 self.eat();
             },
             .new_line => {
+                self.line += 1;
                 self.eat();
+            },
+            .string_literal => {
+                const p = try self.parseParagraph(allocator);
+                try root.data.Document.append(allocator, p);
             },
             else => {
                 var buf: [128]u8 = undefined;
@@ -175,11 +176,6 @@ fn parseParagraph(self: *Parser, allocator: Allocator) !Node {
                 self.eat();
                 break;
             },
-            .string_literal => {
-                const content = self.buf[t.loc.start..t.loc.end];
-                try children.append(allocator, Node{ .kind = .Text, .data = .{ .Text = content } });
-                self.eat();
-            },
             .asterisk => {
                 try self.assertPeek(1, .asterisk);
                 var nt = self.next();
@@ -190,8 +186,12 @@ fn parseParagraph(self: *Parser, allocator: Allocator) !Node {
                 const content = self.buf[nt.loc.start..nt.loc.end];
                 try children.append(allocator, Node{ .kind = .Strong, .data = .{ .Strong = content } });
 
+                try self.assertPeek(1, .asterisk);
                 self.eat();
-                self.eatUntilNot(Token.TokenType.asterisk);
+                try self.assertPeek(1, .asterisk);
+                self.eat();
+
+                self.eat();
             },
             .underscore => {
                 try self.assertPeek(1, .string_literal);
@@ -223,6 +223,11 @@ fn parseParagraph(self: *Parser, allocator: Allocator) !Node {
 
                 try children.append(allocator, Node{ .kind = NodeKind.Url, .data = .{ .Url = .{ .href = self.buf[href.loc.start..href.loc.end], .text = self.buf[text.loc.start..text.loc.end] } } });
 
+                self.eat();
+            },
+            .string_literal => {
+                const content = self.buf[t.loc.start..t.loc.end];
+                try children.append(allocator, Node{ .kind = .Text, .data = .{ .Text = content } });
                 self.eat();
             },
             else => {
@@ -264,7 +269,7 @@ fn assertPeek(self: *Parser, offset: usize, ttype: Token.TokenType) !void {
     if (t.ttype != ttype) {
         try std.io.getStdErr().writer().print(
             "line={d}\tcol={d}\nerror: expected peek token to be TokenType.{s}={c}, got TokenType.{s}={c} instead.\n",
-            .{ self.line, self.index, @tagName(ttype), self.buf[i], @tagName(t.ttype), self.buf[self.index] },
+            .{ self.line, self.index, @tagName(ttype), self.buf[self.tokens[self.index].loc.start..self.tokens[self.index].loc.end], @tagName(t.ttype), self.buf[t.loc.start..t.loc.end] },
         );
         return error.MismatchedPeek;
     }

@@ -1,7 +1,5 @@
 // TODO:
-// 2. handle outbound urls
 // 3. better debug output that can be toggled on/off
-// 5. add description to PostConfig
 // 6. support <ol>
 // 7. handle directory of posts using Threads
 // 8. actually validate syntax, currently accepts **hello as <strong>, does not confirm closing **
