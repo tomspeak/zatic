@@ -3,15 +3,24 @@ const std = @import("std");
 const Markdown = @import("../markdown/markdown.zig");
 
 pub const PostConfig = struct {
-    url: []u8,
-    date: []u8,
-    title: []u8,
+    url: ?[]u8,
+    date: ?[]u8,
+    title: ?[]u8,
     published: bool,
 
     fn deinit(self: *PostConfig, allocator: std.mem.Allocator) void {
-        allocator.free(self.url);
-        allocator.free(self.date);
-        allocator.free(self.title);
+        if (self.url) |url| {
+            allocator.free(url);
+            self.url = null;
+        }
+        if (self.date) |date| {
+            allocator.free(date);
+            self.date = null;
+        }
+        if (self.title) |title| {
+            allocator.free(title);
+            self.title = null;
+        }
     }
 };
 pub const ConfigOptions = enum { url, date, title, published, unknown };
@@ -45,5 +54,15 @@ pub fn deinit(self: *Post, allocator: std.mem.Allocator) void {
 }
 
 pub fn debug(self: *Post) void {
-    std.debug.print("\n===Config===\nurl={s}\tdate={s}\ttitle={s}\tpublished={any}\n===/Config===\n{s}\n", .{ self.config.url, self.config.date, self.config.title, self.config.published, self.html });
+    std.debug.print("\n===Config===\nurl={s}\tdate={s}\ttitle={s}\tpublished={any}\n===/Config===\n{s}\n", .{
+        optStr(self.config.url),
+        optStr(self.config.date),
+        optStr(self.config.title),
+        self.config.published,
+        self.html,
+    });
+}
+
+fn optStr(opt: ?[]const u8) []const u8 {
+    return opt orelse "<null>";
 }

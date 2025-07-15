@@ -289,11 +289,11 @@ pub fn write(writer: anytype, node: Parser.Node) !void {
         },
         .Strong => {
             const content = node.data.Strong;
-            try writer.print("<strong>{s}</strong>", .{content});
+            try writer.print("<strong>{s}</strong> ", .{content});
         },
         .Emphasis => {
             const content = node.data.Emphasis;
-            try writer.print("<i>{s}</i>", .{content});
+            try writer.print("<i>{s}</i> ", .{content});
         },
         .Paragraph => {
             const children = node.data.Paragraph;
