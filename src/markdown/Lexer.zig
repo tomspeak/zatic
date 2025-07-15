@@ -58,9 +58,9 @@ fn next(self: *Lexer) Token {
                 }
             },
             ' ', '\t' => {
-                self.index += 1;
+                result.ttype = .string_literal;
                 result.loc.start = self.index;
-                continue :state .start;
+                continue :state .string_literal;
             },
             '\n', '\r' => {
                 result.ttype = .new_line;
