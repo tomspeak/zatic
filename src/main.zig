@@ -10,7 +10,6 @@ pub const std_options: std.Options = .{
 var debug_allocator: std.heap.DebugAllocator(.{}) = .init;
 
 pub fn main() !void {
-    // TODO: see if I can fit the entire thing on the stack.
     const gpa, const is_debug = gpa: {
         break :gpa switch (builtin.mode) {
             .Debug, .ReleaseSafe => .{ debug_allocator.allocator(), true },
@@ -21,12 +20,20 @@ pub fn main() !void {
         _ = debug_allocator.deinit();
     };
 
-    var post = Post.init(gpa, "site/posts/test.md") catch |e| {
+    const posts = Post.init(gpa, "site/posts/") catch |e| {
         std.debug.print("err_type: {}\n", .{e});
         std.process.exit(1);
     };
-    defer post.deinit(gpa);
-    post.debug();
+    defer {
+        for (posts) |*p| {
+            p.deinit(gpa);
+        }
+        gpa.free(posts);
+    }
+
+    for (posts) |*p| {
+        p.debug();
+    }
 }
 
 test {

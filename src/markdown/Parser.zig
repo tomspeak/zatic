@@ -366,7 +366,7 @@ pub fn write(writer: anytype, node: Parser.Node) !void {
             const children = node.data.UnorderedList;
             try writer.print("<ul>\n", .{});
             for (children.items) |child| {
-                try writer.print("\t<li>\n", .{});
+                try writer.print("\t<li>\n\t\t", .{});
                 try write(writer, child);
                 try writer.print("\t</li>\n", .{});
             }

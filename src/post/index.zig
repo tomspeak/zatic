@@ -1,4 +1,5 @@
 const std = @import("std");
+const Thread = std.Thread;
 
 const Markdown = @import("../markdown/markdown.zig");
 
@@ -42,15 +43,45 @@ pub fn new() Post {
     };
 }
 
-pub fn init(allocator: std.mem.Allocator, file_path: []const u8) !Post {
-    const buf = try std.fs.cwd().readFileAllocOptions(allocator, file_path, 4096, null, @alignOf(u8), 0);
-    defer allocator.free(buf);
+pub fn init(allocator: std.mem.Allocator, dir_path: []const u8) ![]Post {
+    const cwd = std.fs.cwd();
 
-    var post = Post.new();
-    // TODO: handle errors
-    try Markdown.parse(allocator, &post, buf);
+    var dir = try cwd.openDir(dir_path, .{ .iterate = true });
+    defer dir.close();
 
-    return post;
+    var walker = try dir.walk(allocator);
+    defer walker.deinit();
+
+    var paths = std.ArrayListUnmanaged([]u8).empty;
+    defer paths.deinit(allocator);
+    while (try walker.next()) |entry| {
+        if (!std.mem.endsWith(u8, entry.path, ".md")) continue;
+
+        const full_path = try std.fs.path.join(allocator, &.{ dir_path, entry.path });
+        defer allocator.free(full_path);
+
+        const path_copy = try allocator.dupe(u8, full_path);
+        try paths.append(allocator, path_copy);
+    }
+
+    var posts = std.ArrayListUnmanaged(Post).empty;
+    defer {
+        posts.deinit(allocator);
+        for (paths.items) |p| {
+            allocator.free(p);
+        }
+    }
+    for (paths.items) |p| {
+        const buf = try std.fs.cwd().readFileAllocOptions(allocator, p, 1024 * 32, null, @alignOf(u8), 0);
+        defer allocator.free(buf);
+
+        var post = Post.new();
+        try Markdown.parse(allocator, &post, buf);
+
+        try posts.append(allocator, post);
+    }
+
+    return posts.toOwnedSlice(allocator);
 }
 
 pub fn deinit(self: *Post, allocator: std.mem.Allocator) void {

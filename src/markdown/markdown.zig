@@ -1,6 +1,5 @@
 // TODO:
 // 3. better debug output that can be toggled on/off
-// 6. support <ol>
 // 7. handle directory of posts using Threads
 const std = @import("std");
 const Allocator = std.mem.Allocator;
@@ -23,7 +22,7 @@ pub fn parse(allocator: Allocator, post: *Post, content: [:0]u8) !void {
     var parsed = try parser.parse(allocator);
     defer parsed.deinit(allocator);
 
-    var buf: [1024]u8 = undefined;
+    var buf: [1024 * 32]u8 = undefined;
     var stream = std.io.fixedBufferStream(&buf);
     try Parser.write(stream.writer(), parsed);
 
