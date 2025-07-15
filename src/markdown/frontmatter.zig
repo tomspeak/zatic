@@ -18,6 +18,7 @@ pub fn parse(allocator: std.mem.Allocator, post: *Post, buf: []u8) !usize {
         .url = null,
         .date = null,
         .title = null,
+        .description = null,
         .published = false,
     };
 
@@ -32,6 +33,7 @@ pub fn parse(allocator: std.mem.Allocator, post: *Post, buf: []u8) !usize {
             .url => config.url = try allocator.dupe(u8, v),
             .date => config.date = try allocator.dupe(u8, v),
             .title => config.title = try allocator.dupe(u8, v),
+            .description => config.description = try allocator.dupe(u8, v),
             .published => config.published = eql(v, "true"),
             .unknown => {
                 var s: [64]u8 = undefined;

@@ -1,9 +1,6 @@
 // TODO:
-// 1. Read through https://github.com/c-shinkle/monkey-lang-interpreter/blob/acd2a5a38095b8e27e2c75b577091d1d710b3a69/src/repl.zig
-//   for error handling inspiration.
 // 2. handle outbound urls
 // 3. better debug output that can be toggled on/off
-// 4. better ergonomics for processing tokens/ast
 // 5. add description to PostConfig
 // 6. support <ol>
 // 7. handle directory of posts using Threads

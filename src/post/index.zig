@@ -6,24 +6,29 @@ pub const PostConfig = struct {
     url: ?[]u8,
     date: ?[]u8,
     title: ?[]u8,
+    description: ?[]u8,
     published: bool,
 
     fn deinit(self: *PostConfig, allocator: std.mem.Allocator) void {
-        if (self.url) |url| {
-            allocator.free(url);
+        if (self.url) |x| {
+            allocator.free(x);
             self.url = null;
         }
-        if (self.date) |date| {
-            allocator.free(date);
+        if (self.date) |x| {
+            allocator.free(x);
             self.date = null;
         }
-        if (self.title) |title| {
-            allocator.free(title);
+        if (self.title) |x| {
+            allocator.free(x);
             self.title = null;
+        }
+        if (self.description) |x| {
+            allocator.free(x);
+            self.description = null;
         }
     }
 };
-pub const ConfigOptions = enum { url, date, title, published, unknown };
+pub const ConfigOptions = enum { url, date, title, description, published, unknown };
 
 pub const Post = @This();
 
@@ -54,10 +59,11 @@ pub fn deinit(self: *Post, allocator: std.mem.Allocator) void {
 }
 
 pub fn debug(self: *Post) void {
-    std.debug.print("\n===Config===\nurl={s}\tdate={s}\ttitle={s}\tpublished={any}\n===/Config===\n{s}\n", .{
+    std.debug.print("\n===Config===\nurl={s}\tdate={s}\ttitle={s}\tdescription={s}\tpublished={any}\n===/Config===\n{s}\n", .{
         optStr(self.config.url),
         optStr(self.config.date),
         optStr(self.config.title),
+        optStr(self.config.description),
         self.config.published,
         self.html,
     });
