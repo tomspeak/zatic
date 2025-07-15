@@ -8,6 +8,8 @@ const Parser = @This();
 buf: [:0]const u8,
 tokens: []Token,
 index: usize,
+line: u16,
+errors: std.ArrayListUnmanaged([]const u8),
 
 const NodeKind = enum {
     Document,
@@ -64,7 +66,15 @@ pub const Node = struct {
 };
 
 pub fn init(buf: [:0]const u8, tokens: []Token) Parser {
-    return .{ .buf = buf, .tokens = tokens, .index = 0 };
+    return .{ .buf = buf, .tokens = tokens, .index = 0, .line = 0, .errors = std.ArrayListUnmanaged([]const u8).empty };
+}
+
+pub fn deinit(self: *Parser, allocator: Allocator) !void {
+    for (self.errors.items) |msg| {
+        allocator.free(msg);
+    }
+
+    self.errors.deinit(allocator);
 }
 
 pub fn parse(self: *Parser, allocator: Allocator) !Node {
@@ -74,6 +84,7 @@ pub fn parse(self: *Parser, allocator: Allocator) !Node {
         .data = .{ .Document = std.ArrayListUnmanaged(Node).empty },
     };
 
+    // TODO: consider while (token != eof) : (self.nextToken()) over index
     while (self.index < self.tokens.len - 1) {
         const t = self.tokens[self.index];
 
@@ -92,10 +103,8 @@ pub fn parse(self: *Parser, allocator: Allocator) !Node {
                     else => unreachable,
                 };
 
+                try self.assertPeek(1, .string_literal);
                 const nt = self.next();
-                if (nt.ttype != Token.TokenType.string_literal) {
-                    @panic("header must be followed by a string literal");
-                }
 
                 const content = self.buf[nt.loc.start..nt.loc.end];
 
@@ -112,17 +121,15 @@ pub fn parse(self: *Parser, allocator: Allocator) !Node {
                     },
                 });
 
-                self.eatToken();
+                self.eat();
             },
             .quote => {
-                const nt = self.peek(1) orelse @panic("quote must be followed by a token, but got null");
-                if (nt.ttype != Token.TokenType.string_literal) {
-                    @panic("quote must be followed by a string literal");
-                }
+                try self.assertPeek(1, .string_literal);
+                const nt = self.next();
                 const content = self.buf[nt.loc.start..nt.loc.end];
                 try root.data.Document.append(allocator, Node{ .kind = .Quote, .data = .{ .Quote = content } });
 
-                self.eatToken();
+                self.eat();
             },
             .string_literal => {
                 const p = try self.parseParagraph(allocator);
@@ -130,13 +137,15 @@ pub fn parse(self: *Parser, allocator: Allocator) !Node {
             },
             .horizontal_rule => {
                 try root.data.Document.append(allocator, Node{ .kind = .HorizontalRule, .data = .{ .HorizontalRule = {} } });
-                self.eatToken();
+                self.eat();
             },
             .new_line => {
-                self.eatToken();
+                self.eat();
             },
             else => {
-                @panic("unhandled AST item");
+                var buf: [128]u8 = undefined;
+                const msg = std.fmt.bufPrint(&buf, "line={d}\tcol={d}\nunsupported TokenType: {s}", .{ self.line, self.index, t.ttype.symbol() }) catch unreachable;
+                @panic(msg);
             },
         }
     }
@@ -150,55 +159,51 @@ fn parseParagraph(self: *Parser, allocator: Allocator) !Node {
     while (self.index < self.tokens.len) {
         const t = self.tokens[self.index];
 
-        if (t.ttype == Token.TokenType.eof) {
-            self.eatToken();
+        if (self.is(.eof)) {
+            self.eat();
             break;
         }
 
         switch (t.ttype) {
             .new_line => {
-                self.eatToken();
+                self.line += 1;
+                self.eat();
                 break;
             },
             .string_literal => {
                 const content = self.buf[t.loc.start..t.loc.end];
                 try children.append(allocator, Node{ .kind = .Text, .data = .{ .Text = content } });
-                self.eatToken();
+                self.eat();
             },
             .asterisk => {
+                try self.assertPeek(1, .asterisk);
                 var nt = self.next();
-                if (nt.ttype != Token.TokenType.asterisk) {
-                    @panic("asterisk must be double-asterisk");
-                }
 
+                try self.assertPeek(1, .string_literal);
                 nt = self.next();
-                if (nt.ttype != Token.TokenType.string_literal) {
-                    @panic("double-asterisk must be followed by a string literal");
-                }
 
                 const content = self.buf[nt.loc.start..nt.loc.end];
                 try children.append(allocator, Node{ .kind = .Strong, .data = .{ .Strong = content } });
 
-                self.eatToken();
+                self.eat();
                 self.eatUntilNot(Token.TokenType.asterisk);
             },
             .underscore => {
+                try self.assertPeek(1, .string_literal);
                 var nt = self.next();
-                if (nt.ttype != Token.TokenType.string_literal) {
-                    @panic("underscore must be followed by a string literal");
-                }
 
                 const content = self.buf[nt.loc.start..nt.loc.end];
                 try children.append(allocator, Node{ .kind = NodeKind.Emphasis, .data = .{ .Emphasis = content } });
 
+                try self.assertPeek(1, .underscore);
                 nt = self.next();
-                if (nt.ttype != Token.TokenType.underscore) {
-                    @panic("_{content} must be followed by a closing _");
-                }
-                self.eatUntilNot(Token.TokenType.underscore);
+
+                self.eat();
             },
             else => {
-                @panic("what is this case? maybe we just break instead");
+                var buf: [128]u8 = undefined;
+                const msg = std.fmt.bufPrint(&buf, "line={d}\tcol={d}\nparseParagraph - unsupported TokenType: {s}", .{ self.line, self.index, t.ttype.symbol() }) catch unreachable;
+                @panic(msg);
             },
         }
     }
@@ -219,7 +224,28 @@ fn peek(self: *Parser, offset: usize) ?Token {
     return if (i < self.tokens.len) self.tokens[i] else null;
 }
 
-fn eatToken(self: *Parser) void {
+fn is(self: *Parser, ttype: Token.TokenType) bool {
+    return self.tokens[self.index].ttype == ttype;
+}
+
+fn assertPeek(self: *Parser, offset: usize, ttype: Token.TokenType) !void {
+    const i = self.index + offset;
+    if (i > self.tokens.len) {
+        return error.PeakedPastEOF;
+    }
+
+    const t = self.tokens[i];
+
+    if (t.ttype != ttype) {
+        try std.io.getStdErr().writer().print(
+            "line={d}\tcol={d}\nerror: expected peek token to be TokenType.{s}={c}, got TokenType.{s}={c} instead.\n",
+            .{ self.line, self.index, @tagName(ttype), self.buf[i], @tagName(t.ttype), self.buf[self.index] },
+        );
+        return error.MismatchedPeek;
+    }
+}
+
+fn eat(self: *Parser) void {
     self.index += 1;
 }
 

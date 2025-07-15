@@ -6,6 +6,9 @@
 // 4. better ergonomics for processing tokens/ast
 // 5. add description to PostConfig
 // 6. support <ol>
+// 7. handle directory of posts using Threads
+// 8. actually validate syntax, currently accepts **hello as <strong>, does not confirm closing **
+const std = @import("std");
 const Allocator = std.mem.Allocator;
 
 const Frontmatter = @import("frontmatter.zig");
@@ -13,8 +16,6 @@ const Lexer = @import("Lexer.zig");
 const Parser = @import("Parser.zig");
 const Token = @import("Token.zig");
 const Post = @import("../post/index.zig");
-
-const std = @import("std");
 
 pub fn parse(allocator: Allocator, post: *Post, content: [:0]u8) !void {
     const fm_index = try Frontmatter.parse(allocator, post, content);

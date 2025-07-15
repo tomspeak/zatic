@@ -21,7 +21,10 @@ pub fn main() !void {
         _ = debug_allocator.deinit();
     };
 
-    var post = try Post.init(gpa, "site/posts/test.md");
+    var post = Post.init(gpa, "site/posts/test.md") catch |e| {
+        std.debug.print("err_type: {}\n", .{e});
+        std.process.exit(1);
+    };
     defer post.deinit(gpa);
     post.debug();
 }
