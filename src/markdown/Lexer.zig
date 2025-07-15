@@ -33,7 +33,7 @@ pub fn parse(self: *Lexer, allocator: std.mem.Allocator) !std.ArrayListUnmanaged
     return tokens;
 }
 
-const State = enum { start, string_literal, hashtag, horizontal_rule, new_line };
+const State = enum { start, string_literal, hashtag, dash, new_line };
 
 fn next(self: *Lexer) Token {
     var result: Token = .{
@@ -74,9 +74,8 @@ fn next(self: *Lexer) Token {
             },
             // TODO: parsing bug, need to check that it's 3 --- in a row
             '-' => {
-                result.ttype = .horizontal_rule;
                 result.loc.start = self.index;
-                continue :state .horizontal_rule;
+                continue :state .dash;
             },
             '>' => {
                 result.ttype = .quote;
@@ -131,11 +130,13 @@ fn next(self: *Lexer) Token {
             }
         },
 
-        .horizontal_rule => {
-            self.index += 1;
-            switch (self.buffer[self.index]) {
-                '-' => continue :state .horizontal_rule,
-                else => {},
+        .dash => {
+            if (std.mem.eql(u8, "---", self.buffer[self.index .. self.index + 3])) {
+                self.index += 3;
+                result.ttype = .horizontal_line;
+            } else {
+                self.index += 1;
+                result.ttype = .dash;
             }
         },
 

@@ -20,7 +20,8 @@ pub const TokenType = enum {
     rbracket,
     lparen,
     rparen,
-    horizontal_rule,
+    dash,
+    horizontal_line,
     new_line,
     eof,
 
@@ -40,7 +41,8 @@ pub const TokenType = enum {
             .rbracket => "]",
             .lparen => "(",
             .rparen => ")",
-            .horizontal_rule => "-",
+            .dash => "-",
+            .horizontal_line => "---",
         };
     }
 

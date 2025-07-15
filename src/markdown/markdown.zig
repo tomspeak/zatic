@@ -2,7 +2,6 @@
 // 3. better debug output that can be toggled on/off
 // 6. support <ol>
 // 7. handle directory of posts using Threads
-// 8. actually validate syntax, currently accepts **hello as <strong>, does not confirm closing **
 const std = @import("std");
 const Allocator = std.mem.Allocator;
 

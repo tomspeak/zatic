@@ -26,6 +26,7 @@ const NodeKind = enum {
     HorizontalRule,
     Text,
     Url,
+    UnorderedList,
 };
 
 pub const Node = struct {
@@ -48,6 +49,7 @@ pub const Node = struct {
             text: []const u8,
             href: []const u8,
         },
+        UnorderedList: std.ArrayListUnmanaged(Node),
     },
 
     pub fn deinit(self: *Node, allocator: std.mem.Allocator) void {
@@ -64,6 +66,12 @@ pub const Node = struct {
                 }
                 self.data.Paragraph.deinit(allocator);
             },
+            .UnorderedList => {
+                for (self.data.UnorderedList.items) |*child| {
+                    child.deinit(allocator);
+                }
+                self.data.UnorderedList.deinit(allocator);
+            },
             // all other node types just borrow input slices, no heap allocation to clean up
             else => {},
         }
@@ -71,7 +79,7 @@ pub const Node = struct {
 };
 
 pub fn init(buf: [:0]const u8, tokens: []Token) Parser {
-    return .{ .buf = buf, .tokens = tokens, .index = 0, .line = 0, .errors = std.ArrayListUnmanaged([]const u8).empty };
+    return .{ .buf = buf, .tokens = tokens, .index = 0, .line = 1, .errors = std.ArrayListUnmanaged([]const u8).empty };
 }
 
 pub fn deinit(self: *Parser, allocator: Allocator) !void {
@@ -136,9 +144,22 @@ pub fn parse(self: *Parser, allocator: Allocator) !Node {
 
                 self.eat();
             },
-            .horizontal_rule => {
+            .horizontal_line => {
                 try root.data.Document.append(allocator, Node{ .kind = .HorizontalRule, .data = .{ .HorizontalRule = {} } });
                 self.eat();
+            },
+            .dash => {
+                var children = std.ArrayListUnmanaged(Node).empty;
+
+                while (self.is(.dash)) {
+                    try self.assertPeek(1, .string_literal);
+                    self.eat();
+
+                    const p = try self.parseParagraph(allocator);
+                    try children.append(allocator, p);
+                }
+
+                try root.data.Document.append(allocator, Node{ .kind = .UnorderedList, .data = .{ .UnorderedList = children } });
             },
             .new_line => {
                 self.line += 1;
@@ -231,9 +252,11 @@ fn parseParagraph(self: *Parser, allocator: Allocator) !Node {
                 self.eat();
             },
             else => {
-                var buf: [128]u8 = undefined;
-                const msg = std.fmt.bufPrint(&buf, "line={d}\tcol={d}\nparseParagraph - unsupported TokenType: {s}", .{ self.line, self.index, t.ttype.symbol() }) catch unreachable;
-                @panic(msg);
+                self.eat();
+                break;
+                // var buf: [128]u8 = undefined;
+                // const msg = std.fmt.bufPrint(&buf, "line={d}\tcol={d}\nparseParagraph - unsupported TokenType: {s}", .{ self.line, self.index, t.ttype.symbol() }) catch unreachable;
+                // @panic(msg);
             },
         }
     }
@@ -249,9 +272,8 @@ fn next(self: *Parser) Token {
     return self.tokens[self.index];
 }
 
-fn peek(self: *Parser, offset: usize) ?Token {
-    const i = self.index + offset;
-    return if (i < self.tokens.len) self.tokens[i] else null;
+fn eat(self: *Parser) void {
+    self.index += 1;
 }
 
 fn is(self: *Parser, ttype: Token.TokenType) bool {
@@ -272,16 +294,6 @@ fn assertPeek(self: *Parser, offset: usize, ttype: Token.TokenType) !void {
             .{ self.line, self.index, @tagName(ttype), self.buf[self.tokens[self.index].loc.start..self.tokens[self.index].loc.end], @tagName(t.ttype), self.buf[t.loc.start..t.loc.end] },
         );
         return error.MismatchedPeek;
-    }
-}
-
-fn eat(self: *Parser) void {
-    self.index += 1;
-}
-
-fn eatUntilNot(self: *Parser, token: Token.TokenType) void {
-    while (self.tokens[self.index].ttype == token) {
-        self.index += 1;
     }
 }
 
@@ -349,6 +361,16 @@ pub fn write(writer: anytype, node: Parser.Node) !void {
             const text = node.data.Url.text;
 
             try writer.print("<a href=\"{s}\">{s}</a>", .{ url, text });
+        },
+        .UnorderedList => {
+            const children = node.data.UnorderedList;
+            try writer.print("<ul>\n", .{});
+            for (children.items) |child| {
+                try writer.print("\t<li>\n", .{});
+                try write(writer, child);
+                try writer.print("\t</li>\n", .{});
+            }
+            try writer.print("</ul>\n", .{});
         },
     }
 }
