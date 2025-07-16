@@ -2,7 +2,7 @@ const std = @import("std");
 const trim = std.mem.trim;
 const splitScalar = std.mem.splitScalar;
 
-const Post = @import("../post/index.zig");
+const Post = @import("../Post.zig");
 
 const delim = "+++";
 

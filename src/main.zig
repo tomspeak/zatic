@@ -1,7 +1,7 @@
 const std = @import("std");
 const builtin = @import("builtin");
 
-const Post = @import("post/index.zig");
+const Posts = @import("Posts.zig");
 
 pub const std_options: std.Options = .{
     .log_level = .info,
@@ -20,18 +20,10 @@ pub fn main() !void {
         _ = debug_allocator.deinit();
     };
 
-    const posts = Post.init(gpa, "site/posts/") catch |e| {
-        std.debug.print("err_type: {}\n", .{e});
-        std.process.exit(1);
-    };
-    defer {
-        for (posts) |*p| {
-            p.deinit(gpa);
-        }
-        gpa.free(posts);
-    }
+    var posts = try Posts.init(gpa, "site/posts/");
+    defer posts.deinit(gpa);
 
-    for (posts) |*p| {
+    for (posts.list.items) |*p| {
         p.debug();
     }
 }

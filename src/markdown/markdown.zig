@@ -1,6 +1,7 @@
 // TODO:
 // 3. better debug output that can be toggled on/off
 // 7. handle directory of posts using Threads
+// 8. basic impl of injecting markdown html into template
 const std = @import("std");
 const Allocator = std.mem.Allocator;
 
@@ -8,7 +9,7 @@ const Frontmatter = @import("frontmatter.zig");
 const Lexer = @import("Lexer.zig");
 const Parser = @import("Parser.zig");
 const Token = @import("Token.zig");
-const Post = @import("../post/index.zig");
+const Post = @import("../Post.zig");
 
 pub fn parse(allocator: Allocator, post: *Post, content: [:0]u8) !void {
     const fm_index = try Frontmatter.parse(allocator, post, content);
