@@ -2,6 +2,7 @@ const std = @import("std");
 const builtin = @import("builtin");
 
 const Posts = @import("Posts.zig");
+const ZtmlParser = @import("ztml/Parser.zig");
 
 pub const std_options: std.Options = .{
     .log_level = .info,
@@ -20,12 +21,15 @@ pub fn main() !void {
         _ = debug_allocator.deinit();
     };
 
-    var posts = try Posts.init(gpa, "site/posts/");
-    defer posts.deinit(gpa);
-
-    for (posts.list.items) |*p| {
-        p.debug();
-    }
+    // var posts = try Posts.init(gpa, "site/posts/");
+    // defer posts.deinit(gpa);
+    //
+    // for (posts.list.items) |*p| {
+    //     p.debug();
+    // }
+    const x = try ZtmlParser.parse(gpa, "<body>hello {{ v title }} thank you!</body>");
+    std.debug.print("{s}\n", .{x});
+    defer gpa.free(x);
 }
 
 test {
