@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="en">
-  <head itemscope itemtype="{{ .Site.BaseURL }}">
+  <head itemscope>
     <link
       rel="preload"
       href="/fonts/iAWriterQuattroS-Regular.woff2"
@@ -24,70 +24,13 @@
       name="viewport"
       content="width=device-width, initial-scale=1, shrink-to-fit=no"
     />
-    <link rel="canonical" href="{{ .Permalink }}" />
-    <meta property="og:url" content="{{ .Permalink }}" />
-    <meta
-      name="theme-color"
-      content="#FFFFFF"
-      media="(prefers-color-scheme: light)"
-    />
-    <meta
-      name="theme-color"
-      content="#000000"
-      media="(prefers-color-scheme: dark)"
-    />
-
-    <link rel="icon" href="/favicon/favicon.svg" />
-    <link rel="mask-icon" href="/favicon/mask-icon.svg" />
-    <link rel="apple-touch-icon" href="/favicon/apple-touch-icon.png" />
-    <link rel="manifest" href="/favicon/manifest.json" />
-
-    {{ if .IsHome }}
-    <title itemprop="name">{{ .Title }}</title>
-    <meta name="description" content="and but so it goes." />
-    <meta property="og:description" content="and but so it goes." />
-    <meta name="twitter:description" content="and but so it goes." />
-    <meta
-      property="og:image"
-      content="{{ .Site.BaseURL }}favicon/favicon.png"
-    />
-    <meta
-      name="twitter:image"
-      content="{{ .Site.BaseURL }}favicon/favicon.png"
-    />
-    <meta name="twitter:card" content="summary" />
-    {{ else }}
-    <title itemprop="name">{{ .Title }} {{ .Site.Title }}</title>
-    {{ if .Params.Description }}
-    <meta name="description" content="{{ .Params.Description }}" />
-    <meta property="og:description" content="{{ .Params.Description }}" />
-    <meta name="twitter:description" content="{{ .Params.Description }}" />
-    {{ else }}
-    <meta name="description" content="and but so it goes." />
-    <meta property="og:description" content="and but so it goes." />
-    <meta name="twitter:description" content="and but so it goes." />
-    {{ end }} {{ end }} {{ if isset .Params "image" }}
-    <meta property="og:image" content="{{ .Site.BaseURL}}{{ .Params.Image }}" />
-    <meta name="twitter:card" content="summary_large_image" />
-    <meta
-      name="twitter:image"
-      content="{{ .Site.BaseURL }}{{ .Params.Image }}"
-    />
-    <meta property="og:type" content="article" />
-    {{ else}}
-    <meta property="og:type" content="website" />
-    <meta name="twitter:card" content="summary" />
-    {{ end }}
-    <meta property="og:title" content="{{ .Title }}" />
-    <meta name="twitter:title" content="{{ .Title }}" />
 
     <style>
       {{ css }}
     </style>
   </head>
 
-  <body class="{{ .Section }}">
+  <body class="{{ v section }}">
     <h1>Hello world</h1>
-    {{ block "main" . }} {{ end }} {{ block "footer" . }} {{ end }}
   </body>
 </html>

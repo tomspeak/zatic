@@ -27,7 +27,11 @@ pub fn main() !void {
     // for (posts.list.items) |*p| {
     //     p.debug();
     // }
-    const x = try ZtmlParser.parse(gpa, "<body>hello {{ v title }} thank you!</body>");
+    var context = std.StringHashMap(ZtmlParser.Value).init(gpa);
+    defer context.deinit();
+    try context.put("title", ZtmlParser.Value{ .string = "johnny jones" });
+
+    const x = try ZtmlParser.parse(gpa, "{{ css }} hello world", &context);
     std.debug.print("{s}\n", .{x});
     defer gpa.free(x);
 }

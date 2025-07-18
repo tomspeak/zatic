@@ -1,0 +1,415 @@
+@font-face {
+  font-display: swap;
+  font-family: "iAWriterQuattroS";
+  font-style: normal;
+  font-weight: 400;
+  src: url("/fonts/iAWriterQuattroS-Regular.woff2") format("woff2");
+}
+
+@font-face {
+  font-display: swap;
+  font-family: "iAWriterQuattroS";
+  font-style: italic;
+  font-weight: 400;
+  src: url("/fonts/iAWriterQuattroS-Italic.woff2") format("woff2");
+}
+
+@font-face {
+  font-display: swap;
+  font-family: "iAWriterQuattroS";
+  font-style: normal;
+  font-weight: 700;
+  src: url("/fonts/iAWriterQuattroS-Bold.woff2") format("woff2");
+}
+
+@font-face {
+  font-display: swap;
+  font-family: "iAWriterQuattroS";
+  font-style: italic;
+  font-weight: 700;
+  src: url("/fonts/iAWriterQuattroS-BoldItalic.woff2") format("woff2");
+}
+
+html {
+  font-size: 62.5%;
+}
+
+:root {
+  --text-color: #d9d9d9;
+  --link-color: #ffbfbd;
+  --quote-color: #719872;
+  --bg-color: #4b4b4b;
+  --selection-color: #3f3f3f;
+  --selection-text-color: var(--text-color);
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    "Liberation Mono", "Courier New", monospace;
+  --font-serif: "Lucida Grande", iAWriterQuattroS, -apple-system,
+    BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif,
+    "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+}
+
+::selection {
+  background-color: var(--selection-color);
+  color: var(--selection-text-color);
+}
+
+::-moz-selection {
+  background-color: var(--selection-color);
+  color: var(--selection-text-color);
+}
+
+html {
+  box-sizing: border-box;
+}
+
+*,
+*:before,
+*:after {
+  box-sizing: inherit;
+}
+
+body {
+  font-size: 20px;
+  background: var(--bg-color);
+  color: var(--text-color);
+  font-family: var(--font-serif);
+  padding: 2rem;
+  margin: 0;
+  font-kerning: auto;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+body.photography {
+  background: #000;
+}
+
+path {
+  fill: #ffffff;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --text-color: #616161;
+    --bg-color: #e1e1e1;
+    --link-color: #9a7599;
+    --selection-color: #d9d9d9;
+  }
+  body.photography {
+    background: #fff;
+  }
+
+  path {
+    fill: #353534;
+  }
+}
+
+a {
+  color: var(--link-color);
+  text-decoration-thickness: 1px;
+}
+a:hover {
+  filter: brightness(0.75);
+}
+
+main > section > h2 {
+  /* first header on main page */
+  margin: 0;
+}
+
+section {
+  margin-bottom: 4rem;
+}
+
+footer {
+  margin-top: 5rem;
+  margin-bottom: 2.4rem;
+}
+
+hr {
+  margin: 4.4rem 0;
+}
+
+code {
+  white-space: pre-wrap;
+}
+
+.content {
+  font-family: var(--font-mono);
+}
+
+.indent {
+  margin-left: 2rem;
+}
+
+.logo {
+  text-align: left;
+  margin: 2rem 0 1rem 0;
+  font-weight: 100;
+  font-size: 7rem;
+}
+
+.logo a {
+  text-decoration: none;
+  color: inherit;
+  font-family: var(--font-mono);
+}
+
+.main-page h2 {
+  font-weight: 500;
+}
+
+.books {
+  margin-top: 20px;
+}
+
+.post-container {
+  width: 740px;
+  max-width: 100%;
+  margin: 0 auto;
+}
+
+.post-footer {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 60px;
+}
+
+.photography-container h1,
+.post-container h1 {
+  margin: 0;
+  font-weight: 400;
+  font-size: 6.8rem;
+  hyphens: auto;
+}
+
+.post-container .date {
+  text-indent: 0;
+  display: block;
+  margin: 8px 4px 70px;
+  font-size: 1.4rem;
+}
+
+.post-content h2,
+.post-content h3,
+.post-content h4,
+.post-content h5 {
+  word-break: break-word;
+}
+
+.post-content h2 {
+  font-size: 5.4rem;
+  text-decoration: underline;
+}
+
+.post-content h3 {
+  font-size: 3.4rem;
+}
+
+.post-content h4 {
+  font-size: 2.4rem;
+}
+
+.post-content p,
+.post-content ul {
+  margin-bottom: 3.6rem;
+  font-size: 21px;
+  line-height: 36px;
+  font-family: var(--font-serif);
+  word-break: break-word;
+}
+
+.post-content blockquote {
+  margin-left: 2.4rem;
+  margin-right: 1.6rem;
+  margin-bottom: 2.4rem;
+  padding: 1px 1.8rem;
+  text-indent: 0;
+  border-left: 4px solid var(--quote-color);
+  max-width: 100%;
+}
+
+.post-content blockquote p {
+  margin: 2rem 0;
+}
+
+.post-content sup a {
+  margin: 8px 4px 8px 8px;
+}
+
+.post-content a[href^="#fn:"],
+.post-content a[href^="#fnref:"] {
+  text-decoration: none;
+  font-family: var(--font-mono);
+}
+
+.post-content a[href^="#fnref:"]:before {
+  position: relative;
+  display: inline-block;
+}
+
+.post-content a[href^="#fn:"]:before {
+  content: "[";
+}
+
+.post-content a[href^="#fn:"]:after {
+  content: "]";
+}
+
+.photography-container {
+  max-width: 100%;
+}
+
+.footnote-backref {
+  visibility: hidden;
+}
+
+.footnote-backref::before {
+  content: "↑";
+  visibility: visible;
+  position: absolute;
+  padding: 0 12px;
+  left: 4px;
+}
+
+.photography-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 4rem;
+}
+
+.photography-header__title {
+  align-self: center;
+  padding-right: 2rem;
+}
+
+.photography-header__title h1 {
+  font-size: 10rem;
+}
+
+.photography-header__using {
+  font-size: 2rem;
+  display: block;
+  margin-top: 1rem;
+}
+
+.photography-header__date {
+  display: block;
+  margin-top: 4rem;
+}
+
+.photography-header__img {
+  height: calc(100vh - 4rem);
+  position: relative;
+  width: auto;
+  max-width: 100%;
+}
+
+@media (max-width: 960px) {
+  .photography-header {
+    display: block;
+  }
+
+  .photography-header__using,
+  .photography-header__date {
+    display: none;
+  }
+
+  .photography-header__title {
+    padding-right: 0;
+  }
+
+  .photography-container h1 {
+    display: block;
+    margin-bottom: 24px;
+  }
+
+  .photography-header__img,
+  .photography-content-img__img {
+    height: auto !important;
+  }
+}
+
+.photography-content {
+}
+
+.photography-content-img {
+}
+
+.photography-content-img__img {
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+  margin-bottom: 4rem;
+  display: block;
+}
+
+.photography-content-img__text {
+  margin-left: 2rem;
+}
+
+.middle {
+  margin-left: auto;
+  margin-right: auto;
+  text-align: center;
+}
+
+.right {
+  margin-left: auto;
+  margin-right: 0;
+  text-align: right;
+}
+
+.constrain {
+  max-height: calc(100vh - 4rem);
+  width: auto;
+}
+
+.portrait {
+  max-height: calc(100vh - 4rem);
+  width: auto;
+}
+
+.side-by-side {
+  display: block;
+}
+
+.side-by-side__left,
+.side-by-side__right {
+  width: auto;
+}
+
+.side-by-side__right {
+  margin-left: auto;
+}
+
+@media (min-width: 960px) {
+  .side-by-side {
+    display: flex;
+    justify-content: space-evenly;
+  }
+
+  .side-by-side__left {
+    max-width: auto;
+    margin-right: 1rem;
+  }
+
+  .side-by-side__right {
+    max-width: auto;
+    margin-left: 0;
+  }
+}
+
+.books td {
+  padding-bottom: 1.4rem;
+}
+
+.books td + td {
+  display: none;
+}
+
+@media (min-width: 960px) {
+  .books td + td {
+    display: initial;
+  }
+}
