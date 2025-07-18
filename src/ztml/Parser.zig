@@ -96,18 +96,30 @@ pub fn handle(allocator: std.mem.Allocator, buf: []const u8, ctx: *const std.Str
             const prefix = "<style>";
             const suffix = "</style>";
 
-            const css = try std.fs.cwd().readFileAlloc(allocator, "site/assets/main.css", 10 * 1024);
-            defer allocator.free(css);
+            const css_path = "site/assets/main.css";
+            const file = try std.fs.cwd().openFile(css_path, .{});
+            defer file.close();
 
-            // Pre-calculate total length
-            const total_len = prefix.len + css.len + suffix.len;
+            const stat = try file.stat();
+            const css_len: usize = @intCast(stat.size);
 
-            // Because we know the size ahead of time, we don't need to use ArrayList,
-            // we can alloc everything we need ahead of time and selectively memcpy it in.
+            const total_len = prefix.len + css_len + suffix.len;
             const result = try allocator.alloc(u8, total_len);
-            @memcpy(result[0..prefix.len], prefix);
-            @memcpy(result[prefix.len .. prefix.len + css.len], css);
-            @memcpy(result[prefix.len + css.len ..], suffix);
+
+            var stream = std.io.fixedBufferStream(result);
+            const writer = stream.writer();
+
+            try writer.writeAll(prefix);
+
+            var buffer: [512]u8 = undefined;
+            var reader = file.reader();
+            while (true) {
+                const n = try reader.read(&buffer);
+                if (n == 0) break; // EOF
+                try writer.writeAll(buffer[0..n]);
+            }
+
+            try writer.writeAll(suffix);
 
             return result;
         },
