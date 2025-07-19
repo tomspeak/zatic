@@ -254,9 +254,6 @@ fn parseParagraph(self: *Parser, allocator: Allocator) !Node {
             else => {
                 self.eat();
                 break;
-                // var buf: [128]u8 = undefined;
-                // const msg = std.fmt.bufPrint(&buf, "line={d}\tcol={d}\nparseParagraph - unsupported TokenType: {s}", .{ self.line, self.index, t.ttype.symbol() }) catch unreachable;
-                // @panic(msg);
             },
         }
     }
@@ -301,11 +298,9 @@ pub fn write(writer: anytype, node: Parser.Node) !void {
     switch (node.kind) {
         .Document => {
             const children = node.data.Document;
-            try writer.print("<div>\n", .{});
             for (children.items) |child| {
                 try write(writer, child);
             }
-            try writer.print("</div>\n", .{});
         },
         .Heading1, .Heading2, .Heading3, .Heading4, .Heading5, .Heading6 => {
             const level: u3 = switch (node.kind) {
@@ -327,7 +322,7 @@ pub fn write(writer: anytype, node: Parser.Node) !void {
                 .Heading6 => node.data.Heading6,
                 else => unreachable,
             };
-            try writer.print("<h{}>{s}</h{}>\n", .{ level, content, level });
+            try writer.print("<h{}>{s}</h{}>\n", .{ level, std.mem.trim(u8, content, " \n\t"), level });
         },
         .Strong => {
             const content = node.data.Strong;

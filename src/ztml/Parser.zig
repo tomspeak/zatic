@@ -1,14 +1,5 @@
 const std = @import("std");
 
-// find `{{`, and extract whats between `}}` like we do for front matter
-// parse what the context is, either
-//      {{ fn param }}
-//      {{ fn }}
-//  include "path"
-//  slot "name"
-//  css
-//  js
-
 const FnKind = enum {
     v,
     css,
@@ -37,7 +28,7 @@ pub fn parse(allocator: std.mem.Allocator, buf: []const u8, ctx: *const std.Stri
     var output = std.ArrayListUnmanaged(u8).empty;
     var index: usize = 0;
     var cursor: usize = 0;
-    std.debug.print("ctx: {any}\n", .{ctx.get("title")});
+    //std.debug.print("ctx: {any}\n", .{ctx.get("title")});
 
     while (index < buf.len) {
         if (index + 2 > buf.len) {
@@ -88,6 +79,24 @@ pub fn handle(allocator: std.mem.Allocator, buf: []const u8, ctx: *const std.Str
     switch (funcEnum) {
         .v => {
             const param = split.next() orelse @panic("v func was passed with no param");
+            var ctxValue = ctx.get(param);
+            const ctxStr = try ctxValue.?.toString(allocator);
+            return ctxStr;
+        },
+        .include => {
+            // TODO: ideally this will do a nested parse of the template to
+            // resole nested includes, nested variables etc.
+            const param = split.next() orelse @panic("include func was passed with no param");
+
+            var path_buf: [64]u8 = undefined;
+            const path = try std.fmt.bufPrint(&path_buf, "site/includes/{s}.ztml", .{param});
+
+            const fd = try std.fs.cwd().readFileAlloc(allocator, path, 1024 * 10);
+            return fd;
+        },
+        .slot => {
+            const param = split.next() orelse @panic("slot func was passed with no param");
+            std.debug.print("{s} {any}\n", .{ param, ctx });
             var ctxValue = ctx.get(param);
             const ctxStr = try ctxValue.?.toString(allocator);
             return ctxStr;

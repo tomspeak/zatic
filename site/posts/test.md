@@ -1,7 +1,7 @@
 +++
 date: 2025-07-03
 published: true
-title: Hello World
+title: my FANCY title 
 description: testy mctest face testersone
 +++
 

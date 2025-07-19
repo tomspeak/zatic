@@ -1,5 +1,9 @@
-<h1>{{ v title }}</h2>
-
-{{ slot content }}
+<div class="post-container">
+  <h1>{{ v title }}</h1>
+  <span class="date">{{ v date }}</span>
+  <div class="post-content">
+    {{ slot html }}
+  </div>
+</div>
 
 {{ include footer }}
